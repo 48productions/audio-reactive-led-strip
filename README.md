@@ -1,5 +1,16 @@
 # Audio Reactive LED Strip
-Real-time LED strip music visualization using Python and the ESP8266 or Raspberry Pi.
+This is a fork of scottlawsonbc's project for real-time LED strip music visualization.
+
+This fork also adds:
+- Support for outputting lighting data to an Arduino
+- Support for idle animations when there's no music to be visualized
+- Automatic visualization effect changes
+
+Combined with the original project, you can now output lighting data for an LED strip via any of the below devices:
+- Send to Arduino (or other microcontroller) via serial
+- Send to ESP8266 via Wifi
+- Output on Raspberry Pi's GPIO pins (if this program is run on a pi)
+- Send to BlinkStick (not mentioned in the original project's readme, but support looks to be in the repo anyways)
 
 ![block diagram](images/block-diagram.png)
 
@@ -21,27 +32,24 @@ The repository includes everything needed to build an LED strip music visualizer
 - Arduino firmware for the ESP8266 ([ws2812_controller_esp8266.ino](arduino/ws2812_controller_esp8266/ws2812_controller_esp8266.ino))
 
 # What do I need to make one?
-## Computer + ESP8266
-To build a visualizer using a computer and ESP8266, you will need:
+## Computer + LED Strip Driver (ESP8266, Arduino, or BlinkStick)
+To build a visualizer using a computer any of the supported LED Strip Drivers, you will need:
 - Computer with Python 2.7 or 3.5 ([Anaconda](https://www.continuum.io/downloads) is recommended on Windows)
-- ESP8266 module with RX1 pin exposed. These modules can be purchased for as little as $5 USD. These modules are known to be compatible, but many others will work too:
+- If using an Arduino to drive the LEDs, any Arduino (or microcontroller with serial) should work. Faster, ARM-based boards (like the Teensy 3.2, ItsyBitsy M0, etc) are *strongly* preferred as slower chips may have trouble keeping up with receiving serial data and driving the LEDs at the same time with longer strands.
+- If using an ESP8266 to drive the LEDs, you'll need an ESP8266 module with RX1 pin exposed. These modules can be purchased for as little as $5 USD. These modules are known to be compatible, but many others will work too:
   - NodeMCU v3
   - Adafruit HUZZAH
   - Adafruit Feather HUZZAH
+- If using a Raspberry Pi to drive lights, any Pi model will work.
+  - Note that this script must be run on the Pi in order for the Pi to control LEDs, so if you want it to react to external audio (from a phone, game console, etc) you'll also need to buy a USB audio input device. Any input will work (microphone, sound card, etc), you just need to get the Pi the audio input to work with.
+- If using a BlinkStick to drive lights, any BlinkStick module will in theory work? Support isn't mentioned in the original project but was in the repository anyways.
 - WS2812B LED strip (such as Adafruit Neopixels). These can be purchased for as little as $5-15 USD per meter.
 - 5V power supply
-- 3.3V-5V level shifter (optional, must be non-inverting)
+- [Per Adafruit's best practices, ](https://learn.adafruit.com/adafruit-neopixel-uberguide/best-practices) a 300-500 ohm resistor and a 1000uF capacitor can help protect Neopixels from damage - see their page for more information.
+- 3.3V-5V level shifter (optional if using a 3.3V microcontroller like an ESP8266 or Teensy, not required for 5V boards. Must be non-inverting)
 
 Limitations when using a computer + ESP8266:
 - The communication protocol between the computer and ESP8266 currently supports a maximum of 256 LEDs.
-
-## Standalone Raspberry Pi
-You can also build a standalone visualizer using a Raspberry Pi. For this you will need: 
-- Raspberry Pi (1, 2, or 3)
-- USB audio input device. This could be a USB microphone or a sound card. You just need to find some way of giving the Raspberry Pi audio input.
-- WS2812B LED strip (such as Adafruit Neopixels)
-- 5V power supply
-- 3.3V-5V level shifter (optional)
 
 Limitations when using the Raspberry Pi:
 - Raspberry Pi is just fast enough the run the visualization, but it is too slow to run the GUI window as well. It is recommended that you disable the GUI when running the code on the Raspberry Pi.
@@ -94,6 +102,20 @@ For the NodeMCU v3 and Adafruit Feather HUZZAH, the location of the RX1 pin is s
 
 ![nodemcu-pinout](images/NodeMCUv3-small.png)
 ![feather-huzzah-pinout](images/FeatherHuzzah-small.png)
+
+
+### Arduino Notes
+To use an Arduino to drive lights, you'll need firmware to convert the serial format this script sends to it into lighting data that your LED strip can handle (example firmware to do this coming soon:tm:)
+
+The script uses the following format for Arduino/Serial-based lights output:
+`!<id><r><g><b><...>\n`
+
+- Where <id> is the LED to update, and <r>, <g>, and <b> are the RGB values for that LED.
+- All 4 parameters are *always* 3 digits long.
+- Lines always begin with a ! and always end with a newline.
+- Data for multiple LEDs can be sent at once - it just repeats the 4 arguments again for each LED to update.
+- Only LEDs that have a different color and need to be updated are sent. Keep this in mind when writing firmware.
+
 
 ### Raspberry Pi
 Since the Raspberry Pi is a 3.3V device, the best practice is to use a logic level converter to shift the 3.3V logic to 5V logic (WS2812 LEDs use 5V logic). There is a good overview on the [best practices here](https://learn.adafruit.com/adafruit-neopixel-uberguide/best-practices).
@@ -227,8 +249,6 @@ Once everything has been configured, run [visualization.py](python/visualization
 A PyQtGraph GUI will open to display the output of the visualization on the computer. There is a setting to enable/disable the GUI display in [config.py](python/config.py)
 
 ![visualization-gui](images/visualization-gui.png)
-
-If you encounter any issues or have questions about this project, feel free to [open a new issue](https://github.com/scottlawsonbc/audio-reactive-led-strip/issues).
 
 # Limitations
 * ESP8266 supports a maximum of 256 LEDs. This limitation will be removed in a future update. The Raspberry Pi can use more than 256 LEDs.
