@@ -3,7 +3,7 @@ from __future__ import print_function
 from __future__ import division
 import os
 
-DEVICE = 'esp8266'
+DEVICE = 'arduino'
 """Device used to control LED strip. Must be 'pi',  'esp8266' or 'blinkstick'
 
 'esp8266' means that you are using an ESP8266 module to control the LED strip
@@ -13,6 +13,9 @@ and commands will be sent to the ESP8266 over WiFi.
 audio input and control the LED strip directly.
 
 'blinkstick' means that a BlinkstickPro is connected to this PC which will be used
+to control the leds connected to it.
+
+'arduino' means that an Arduino is directly connected to this PC which will be used
 to control the leds connected to it.
 """
 
@@ -42,7 +45,14 @@ if DEVICE == 'blinkstick':
     SOFTWARE_GAMMA_CORRECTION = True
     """Set to True because blinkstick doesn't use hardware dithering"""
 
-USE_GUI = True
+if DEVICE == 'arduino':
+    SOFTWARE_GAMMA_CORRECTION = True
+    """Set to True because arduino doesn't use hardware dithering"""
+    ARDUINO_PORT = "COM7"
+    """COM port/device name the Arduino is using"""
+    ARDUINO_BAUD = 57600
+
+USE_GUI = False
 """Whether or not to display a PyQtGraph GUI plot of visualization"""
 
 DISPLAY_FPS = True
@@ -76,7 +86,7 @@ depends on how long the LED strip is.
 _max_led_FPS = int(((N_PIXELS * 30e-6) + 50e-6)**-1.0)
 assert FPS <= _max_led_FPS, 'FPS must be <= {}'.format(_max_led_FPS)
 
-MIN_FREQUENCY = 200
+MIN_FREQUENCY = 50
 """Frequencies below this value will be removed during audio processing"""
 
 MAX_FREQUENCY = 12000
@@ -100,5 +110,13 @@ There is no point using more bins than there are pixels on the LED strip.
 N_ROLLING_HISTORY = 2
 """Number of past audio frames to include in the rolling window"""
 
-MIN_VOLUME_THRESHOLD = 1e-7
-"""No music visualization displayed if recorded audio volume below threshold"""
+MIN_VOLUME_THRESHOLD = 1e-3
+"""No music visualization displayed if recorded audio volume below threshold (originally 1e-7, virtually never disables visualization).
+Lower values (higher values after e) turn off visualization at lower volumes
+If this value is too high visualization may cut off during quiet parts of the song, and if it's too low, random "noise" may appear on the strip if the music stops for a long time"""
+
+DEBUG_THRESHOLD = False
+"""If true, the first pixel is turned RED whenever visualization is stopped (to help tune in the above value)"""
+
+IDLE_TIMEOUT = 5
+"""If the min volume threshold is met for this many seconds, the strip will start playing idle animations"""

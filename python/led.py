@@ -30,6 +30,12 @@ elif config.DEVICE == 'blinkstick':
     # Create a listener that turns the leds off when the program terminates
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
+elif config.DEVICE == 'arduino':
+    import serial
+    ser = serial.Serial()
+    ser.baudrate = config.ARDUINO_BAUD
+    ser.port = config.ARDUINO_PORT
+    ser.open()
 
 _gamma = np.load(config.GAMMA_TABLE_PATH)
 """Gamma lookup table used for nonlinear brightness correction"""
@@ -134,6 +140,37 @@ def _update_blinkstick():
     #send the data to the blinkstick
     stick.set_led_data(0, newstrip)
 
+def _update_arduino():
+    """Output serial data to an Arduino/other microcontroller
+	
+	Data format: !<id><r><g><b><append more id/r/g/b values...>
+    """
+    global pixels, _prev_pixels
+    # Truncate values and cast to integer
+    pixels = np.clip(pixels, 0, 255).astype(int)
+    # Optionally apply gamma correc tio
+    p = _gamma[pixels] if config.SOFTWARE_GAMMA_CORRECTION else np.copy(pixels)
+    MAX_PIXELS_PER_PACKET = 126
+    # Pixel indices
+    idx = range(pixels.shape[1])
+    idx = [i for i in idx if not np.array_equal(p[:, i], _prev_pixels[:, i])]
+    n_packets = len(idx) // MAX_PIXELS_PER_PACKET + 1
+    idx = np.array_split(idx, n_packets)
+    for packet_indices in idx:
+        m = "!" #Start off the data string with the magic character to get the arduino into "let's update the LED strip now" mode:tm:
+        for i in packet_indices:
+            #if _is_python_2:
+                m += i.astype(str).zfill(3) + p[0][i].astype(str).zfill(3) + p[1][i].astype(str).zfill(3) + p[2][i].astype(str).zfill(3) #For each LED to update, print out the id of the led to set, then its R, G, and B values - Make sure to pad to 3 digits (zfill)!
+            #else:
+            #    m.append(i)  # Index of pixel to change
+            #    m.append(p[0][i])  # Pixel red value
+            #    m.append(p[1][i])  # Pixel green value
+            #    m.append(p[2][i])  # Pixel blue value
+        m += '\n'
+        #print(m)
+        #m = m if _is_python_2 else bytes(m, 'UTF-8')
+        ser.write(m.encode())
+    _prev_pixels = np.copy(p)
 
 def update():
     """Updates the LED strip values"""
@@ -143,6 +180,8 @@ def update():
         _update_pi()
     elif config.DEVICE == 'blinkstick':
         _update_blinkstick()
+    elif config.DEVICE == 'arduino':
+        _update_arduino()
     else:
         raise ValueError('Invalid device selected')
 

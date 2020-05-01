@@ -7,6 +7,7 @@ import config
 import microphone
 import dsp
 import led
+import random
 
 _time_prev = time.time() * 1000.0
 """The previous time that the frames_per_second() function was called"""
@@ -176,6 +177,38 @@ def visualize_spectrum(y):
     return output
 
 
+def idle_center_rainbow():
+    led.pixels[0][2] = 255
+
+rw_direction = 1
+rw_cur_color = 0
+rw_colors = [[255, 0, 0], [255, 106, 0], [255, 216, 0], [76, 255, 0], [0, 255, 255], [0, 38, 255], [255, 0, 220]]
+rw_roll_count = 0
+
+def idle_rainbow_wipes(): #Rainbow Wipes: Wipe in colors from the rainbow, alternating between the different halves of the strip
+    global rw_direction, rw_cur_color, rw_colors, rw_roll_count
+    led.pixels[0][rw_roll_count] = rw_colors[rw_cur_color][0]
+    led.pixels[1][rw_roll_count] = rw_colors[rw_cur_color][1]
+    led.pixels[2][rw_roll_count] = rw_colors[rw_cur_color][2]
+    rw_roll_count += rw_direction
+    if rw_roll_count >= config.N_PIXELS - 1 or rw_roll_count <= 0: #We've wiped a new color onto the whole strip, time for a new color
+        rw_cur_color += 1
+        if rw_direction == 1:
+            rw_direction = -1
+        else:
+            rw_direction = 1
+        
+        if rw_cur_color >= len(rw_colors):
+            rw_cur_color = 0
+
+
+def init_idle():
+    global rw_direction, rw_cur_color, rw_roll_count
+    rw_direction = 1
+    rw_cur_color = 0
+    rw_roll_count = 0
+
+
 fft_plot_filter = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
                          alpha_decay=0.5, alpha_rise=0.99)
 mel_gain = dsp.ExpFilter(np.tile(1e-1, config.N_FFT_BINS),
@@ -186,10 +219,17 @@ volume = dsp.ExpFilter(config.MIN_VOLUME_THRESHOLD,
                        alpha_decay=0.02, alpha_rise=0.02)
 fft_window = np.hamming(int(config.MIC_RATE / config.FPS) * config.N_ROLLING_HISTORY)
 prev_fps_update = time.time()
+prev_visualization_time = time.time()
+last_idle_anim_change_time = time.time()
+
+idle_anim = idle_rainbow_wipes
+idle_choices = [idle_rainbow_wipes]
+visualization_effect = visualize_spectrum
+visualization_choices = [visualize_energy, visualize_scroll, visualize_spectrum]
 
 
 def microphone_update(audio_samples):
-    global y_roll, prev_rms, prev_exp, prev_fps_update
+    global y_roll, prev_rms, prev_exp, prev_fps_update, prev_visualization_time, last_idle_anim_change_time, idle_anim, idle_choices, visualization_effect, visualization_choices
     # Normalize samples between 0 and 1
     y = audio_samples / 2.0**15
     # Construct a rolling window of audio samples
@@ -199,11 +239,24 @@ def microphone_update(audio_samples):
     
     vol = np.max(np.abs(y_data))
     if vol < config.MIN_VOLUME_THRESHOLD:
-        print('No audio input. Volume below threshold. Volume:', vol)
-        led.pixels = np.tile(0, (3, config.N_PIXELS))
+        #print('No audio input. Volume below threshold. Volume:', vol)
+        if time.time() - prev_visualization_time >= config.IDLE_TIMEOUT: #x seconds have passed since visualization stopped, play some idle animations
+            #led.pixels[1][1] = 255
+            idle_anim()
+            if time.time() - last_idle_anim_change_time >= 10: #Every 10 seconds when playing idle animations, pick a new idle animation and visualization effect
+                last_idle_anim_change_time = time.time()
+                idle_anim = random.choice(idle_choices)
+                init_idle()
+                visualization_effect = random.choice(visualization_choices)
+        else:
+            led.pixels = np.tile(0, (3, config.N_PIXELS)) #Blank the pixels
+            if config.DEBUG_THRESHOLD:
+                led.pixels[0][0] = 255 #Debug: Wtih no visualization set the first pixel to be red
+        
         led.update()
     else:
         # Transform audio input into the frequency domain
+        prev_visualization_time = time.time()
         N = len(y_data)
         N_zeros = 2**int(np.ceil(np.log2(N))) - N
         # Pad with zeros until the next power of two
@@ -247,9 +300,6 @@ samples_per_frame = int(config.MIC_RATE / config.FPS)
 
 # Array containing the rolling audio sample window
 y_roll = np.random.rand(config.N_ROLLING_HISTORY, samples_per_frame) / 1e16
-
-visualization_effect = visualize_spectrum
-"""Visualization effect to display on the LED strip"""
 
 
 if __name__ == '__main__':
