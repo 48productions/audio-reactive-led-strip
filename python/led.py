@@ -182,7 +182,7 @@ def update():
         _update_blinkstick()
     elif config.DEVICE == 'arduino':
         _update_arduino()
-    else:
+    elif config.DEVICE != 'none':
         raise ValueError('Invalid device selected')
 
 

@@ -177,6 +177,40 @@ def visualize_spectrum(y):
     return output
 
 
+def visualize_pump0(y):
+    """A few sections, solid color for each. Section size determined by frequency band strength. Color choice scrolls outward regularly."""
+    global p
+    y = y**2.0 #y is the FFT output, square it first?
+    gain.update(y)
+    y /= gain.value
+    #y *= 255.0
+    #r = int(np.max(y[:len(y) // 3]))
+    #g = int(np.max(y[len(y) // 3: 2 * len(y) // 3]))
+    #b = int(np.max(y[2 * len(y) // 3:]))
+    
+    bins = [0, 0, 0, 0]
+    print(len(y))
+    #bins[0] = np.max(y[:100]) #Find the highest value in each range/bin of frequencies - This first one goes from 0-100Hz
+    #bins[1] = np.max(y[100:250]) #100-250Hz
+    #bins[2] = np.max(y[250:2000]) #250-2000Hz
+    #bins[3] = np.max(y[2000:len[y]]) #2000-Max Hz
+    
+    bins[0] = np.max(y[:6])
+    bins[1] = np.max(y[6:12])
+    bins[2] = np.max(y[12:18])
+    bins[3] = np.max(y[18:])
+    
+    total = sum(bins)
+    
+    #Todo: Find percent each bin takes up in total, map to leds
+    
+    
+    # Create new color originating at the center
+    #p[0, 0] = r
+    #p[1, 0] = g
+    #p[2, 0] = b
+    # Update the LED strip
+    return np.concatenate((p[:, ::-1], p), axis=1)
 
 
 
@@ -257,10 +291,10 @@ prev_fps_update = time.time()
 prev_visualization_time = time.time()
 
 idle_anim = idle_rainbow_wipes
-#idle_choices = [idle_rainbow_wipes]
-idle_choices = [idle_center_scroll]
-visualization_effect = visualize_spectrum
-visualization_choices = [visualize_energy, visualize_scroll, visualize_spectrum]
+idle_choices = [idle_rainbow_wipes]
+#idle_choices = [idle_center_scroll]
+visualization_effect = visualize_pump0
+visualization_choices = [visualize_energy, visualize_scroll, visualize_spectrum, visualize_pump0]
 idling = False
 
 
@@ -313,15 +347,15 @@ def microphone_update(audio_samples):
         output = visualization_effect(mel)
         led.pixels = output
         led.update()
-        if config.USE_GUI:
+        if config.USE_GUI: #Using the GUI while visualizing an effect? Update the UI!
             # Plot filterbank output
             x = np.linspace(config.MIN_FREQUENCY, config.MAX_FREQUENCY, len(mel))
             mel_curve.setData(x=x, y=fft_plot_filter.update(mel))
-            # Plot the color channels
-            r_curve.setData(y=led.pixels[0])
-            g_curve.setData(y=led.pixels[1])
-            b_curve.setData(y=led.pixels[2])
-    if config.USE_GUI:
+    if config.USE_GUI: #Using the UI, regardless of whether we're visualizing or idling? Update the UI!
+        # Plot the color channels
+        r_curve.setData(y=led.pixels[0])
+        g_curve.setData(y=led.pixels[1])
+        b_curve.setData(y=led.pixels[2])
         app.processEvents()
     
     if config.DISPLAY_FPS:
@@ -426,7 +460,7 @@ if __name__ == '__main__':
         energy_label.mousePressEvent = energy_click
         scroll_label.mousePressEvent = scroll_click
         spectrum_label.mousePressEvent = spectrum_click
-        energy_click(0)
+        #energy_click(0)
         # Layout
         layout.nextRow()
         layout.addItem(freq_label, colspan=3)

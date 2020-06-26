@@ -3,7 +3,7 @@ from __future__ import print_function
 from __future__ import division
 import os
 
-DEVICE = 'arduino'
+DEVICE = 'none'
 """Device used to control LED strip. Must be 'pi',  'esp8266' or 'blinkstick'
 
 'esp8266' means that you are using an ESP8266 module to control the LED strip
@@ -17,6 +17,9 @@ to control the leds connected to it.
 
 'arduino' means that an Arduino is directly connected to this PC which will be used
 to control the leds connected to it.
+
+'none' will run the visualization script without actually outputting lighting data
+to a physical device.
 """
 
 if DEVICE == 'esp8266':
@@ -52,7 +55,7 @@ if DEVICE == 'arduino':
     """COM port/device name the Arduino is using"""
     ARDUINO_BAUD = 57600
 
-USE_GUI = False
+USE_GUI = True
 """Whether or not to display a PyQtGraph GUI plot of visualization"""
 
 DISPLAY_FPS = True
